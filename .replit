@@ -1,0 +1,19 @@
+modules = ["python-base-3.13"]
+run = "python app.py"
+[nix]
+channel = "stable-24_05"
+
+[deployment]
+run = ["sh", "-c", "python.app.py"]
+
+[workflows]
+runButton = "Python"
+
+[[workflows.workflow]]
+name = "Python"
+author = 41035454
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python app.py"
