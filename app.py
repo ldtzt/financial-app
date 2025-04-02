@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import io
 import base64
 
+app = Flask(__name__)
 
 # Dictionary of companies and their tickers
 COMPANIES = {
@@ -26,8 +27,6 @@ def search():
     matches = [company for company in COMPANIES.keys() 
               if term in company.lower()]
     return jsonify(matches[:5])
-
-app = Flask(__name__)
 
 @app.route('/')
 def home():
