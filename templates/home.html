@@ -47,16 +47,14 @@
         {% if chart_img %}
             <div class="row mt-4">
                 <div class="col-12 text-center">
-                    <div style="position: relative;">
-                        <img id="chartImage" src="data:image/png;base64,{{ chart_img }}" class="img-fluid">
-                        <select id="periodSelector" style="position: absolute; top: 10px; right: 10px;">
-                            <option value="ytd" {% if request.form['period'] == 'ytd' %} selected {% endif %}>YTD</option>
-                            <option value="5y" {% if request.form['period'] == '5y' %} selected {% endif %}>5 Years</option>
-                            <option value="10y" {% if request.form['period'] == '10y' %} selected {% endif %}>10 Years</option>
-                            <option value="15y" {% if request.form['period'] == '15y' %} selected {% endif %}>15 Years</option>
-                            <option value="20y" {% if request.form['period'] == '20y' %} selected {% endif %}>20 Years</option>
-                            <option value="25y" {% if request.form['period'] == '25y' %} selected {% endif %}>25 Years</option>
-                        </select>
+                    <img id="chartImage" src="data:image/png;base64,{{ chart_img }}" class="img-fluid">
+                    <div class="btn-group mt-3" role="group">
+                        <button type="button" class="btn btn-outline-primary period-btn" data-period="ytd">YTD</button>
+                        <button type="button" class="btn btn-outline-primary period-btn" data-period="5y">5Y</button>
+                        <button type="button" class="btn btn-outline-primary period-btn" data-period="10y">10Y</button>
+                        <button type="button" class="btn btn-outline-primary period-btn" data-period="15y">15Y</button>
+                        <button type="button" class="btn btn-outline-primary period-btn" data-period="20y">20Y</button>
+                        <button type="button" class="btn btn-outline-primary period-btn" data-period="25y">25Y</button>
                     </div>
                 </div>
             </div>
@@ -65,16 +63,20 @@
 
     <script>
         $(document).ready(function() {
-            $('#periodSelector').on('change', function() {
+            $('.period-btn').on('click', function() {
+                $('.period-btn').removeClass('active');
+                $(this).addClass('active');
                 $.ajax({
                     url: '/analyze',
                     type: 'POST',
-                    data: $('#analyzeForm').serialize() + '&period=' + $(this).val(),
+                    data: $('#analyzeForm').serialize() + '&period=' + $(this).data('period'),
                     success: function(data) {
                         $('#chartImage').attr('src', 'data:image/png;base64,' + $(data).find('#chartImage').attr('src').split(',')[1]);
                     }
                 });
             });
+            // Activate YTD button by default
+            $('.period-btn[data-period="ytd"]').addClass('active');
         });
     </script>
 </body>
