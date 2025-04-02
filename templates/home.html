@@ -14,20 +14,16 @@
         <h1 class="text-center mt-2 mb-4">Interactive Stock Charts</h1>
         <div class="row justify-content-center">
             <div class="col-md-6">
-                <form method="POST" action="/analyze">
+                <form id="analyzeForm" method="POST" action="/analyze">
                     <div class="mb-3">
-                        <input type="text" class="form-control" id="stockSearch" name="stocks" placeholder="Search companies (max 5, comma-separated)" required>
+                        <input type="text" class="form-control" id="stockSearch" name="stocks" placeholder="Search companies (max 5, comma-separated)" required value="{{ request.form['stocks'] if request.form['stocks'] else '' }}">
                     </div>
                     <script>
                         $(document).ready(function() {
                             $("#stockSearch").autocomplete({
                                 source: function(request, response) {
                                     var term = request.term.split(',').pop().trim();
-                                    $.getJSON("/search", {
-                                        term: term
-                                    }, function(data) {
-                                        response(data);
-                                    });
+                                    $.getJSON("/search", { term: term }, function(data) { response(data); });
                                 },
                                 minLength: 2,
                                 select: function(event, ui) {
@@ -51,10 +47,35 @@
         {% if chart_img %}
             <div class="row mt-4">
                 <div class="col-12 text-center">
-                    <img src="data:image/png;base64,{{ chart_img }}" class="img-fluid">
+                    <div style="position: relative;">
+                        <img id="chartImage" src="data:image/png;base64,{{ chart_img }}" class="img-fluid">
+                        <select id="periodSelector" style="position: absolute; top: 10px; right: 10px;">
+                            <option value="ytd" {% if request.form['period'] == 'ytd' %} selected {% endif %}>YTD</option>
+                            <option value="5y" {% if request.form['period'] == '5y' %} selected {% endif %}>5 Years</option>
+                            <option value="10y" {% if request.form['period'] == '10y' %} selected {% endif %}>10 Years</option>
+                            <option value="15y" {% if request.form['period'] == '15y' %} selected {% endif %}>15 Years</option>
+                            <option value="20y" {% if request.form['period'] == '20y' %} selected {% endif %}>20 Years</option>
+                            <option value="25y" {% if request.form['period'] == '25y' %} selected {% endif %}>25 Years</option>
+                        </select>
+                    </div>
                 </div>
             </div>
         {% endif %}
     </div>
+
+    <script>
+        $(document).ready(function() {
+            $('#periodSelector').on('change', function() {
+                $.ajax({
+                    url: '/analyze',
+                    type: 'POST',
+                    data: $('#analyzeForm').serialize() + '&period=' + $(this).val(),
+                    success: function(data) {
+                        $('#chartImage').attr('src', 'data:image/png;base64,' + $(data).find('#chartImage').attr('src').split(',')[1]);
+                    }
+                });
+            });
+        });
+    </script>
 </body>
 </html>
