@@ -66,12 +66,22 @@
             $('.period-btn').on('click', function() {
                 $('.period-btn').removeClass('active');
                 $(this).addClass('active');
+                var currentStocks = $('#stockSearch').val();
+                var period = $(this).data('period');
+                
                 $.ajax({
                     url: '/analyze',
                     type: 'POST',
-                    data: $('#analyzeForm').serialize() + '&period=' + $(this).data('period'),
-                    success: function(data) {
-                        $('#chartImage').attr('src', 'data:image/png;base64,' + $(data).find('#chartImage').attr('src').split(',')[1]);
+                    data: {
+                        stocks: currentStocks,
+                        period: period
+                    },
+                    success: function(response) {
+                        var newDoc = new DOMParser().parseFromString(response, 'text/html');
+                        var newChartSrc = $(newDoc).find('#chartImage').attr('src');
+                        if (newChartSrc) {
+                            $('#chartImage').attr('src', newChartSrc);
+                        }
                     }
                 });
             });
