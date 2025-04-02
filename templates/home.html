@@ -22,25 +22,21 @@
                         $(document).ready(function() {
                             $("#stockSearch").autocomplete({
                                 source: function(request, response) {
+                                    var term = request.term.split(',').pop().trim();
                                     $.getJSON("/search", {
-                                        term: request.term
+                                        term: term
                                     }, function(data) {
                                         response(data);
                                     });
                                 },
                                 minLength: 2,
                                 select: function(event, ui) {
-                                    var currentValue = $(this).val();
-                                    var stocks = currentValue.split(',');
-                                    stocks.pop();
-                                    stocks.push(ui.item.value);
-                                    $(this).val(stocks.join(',') + ',');
+                                    var terms = this.value.split(',');
+                                    terms.pop();
+                                    terms.push(ui.item.value);
+                                    terms.push("");
+                                    this.value = terms.join(', ');
                                     return false;
-                                }
-                            }).on('input', function() {
-                                var value = $(this).val();
-                                if (!value.endsWith(',') && value.length > 0) {
-                                    $(this).val(value + ',');
                                 }
                             });
                         });
