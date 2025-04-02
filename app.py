@@ -3,23 +3,25 @@ import yfinance as yf
 import matplotlib.pyplot as plt
 import io
 import base64
+import csv
 
 app = Flask(__name__)
 
-import csv
-
 # Load companies from CSV file
 COMPANIES = {}
-with open('companies.csv', 'r') as file:
-    csv_reader = csv.DictReader(file)
-    for row in csv_reader:
-        COMPANIES[f"{row['Company Name']} ({row['Ticker Symbol']})"] = row['Ticker Symbol']
+try:
+    with open('companies.csv', 'r', encoding='utf-8') as file:
+        csv_reader = csv.DictReader(file)
+        for row in csv_reader:
+            COMPANIES[f"{row['Company Name']} ({row['Ticker Symbol']})"] = row['Ticker Symbol']
+except FileNotFoundError:
+    print("companies.csv not found")
 
 @app.route('/search')
 def search():
     term = request.args.get('term', '').lower()
-    matches = [company for company in COMPANIES.keys() 
-              if term in company.lower()]
+    matches = [company for company in COMPANIES.keys()
+                if term in company.lower()]
     return jsonify(matches[:5])
 
 @app.route('/')
@@ -28,10 +30,22 @@ def home():
 
 @app.route('/analyze', methods=['POST'])
 def analyze():
-    stocks = request.form['stocks'].replace(' ', '').upper().split(',')[:5]
+    stocks_input = request.form['stocks'].replace(' ', '').upper()
+    stocks = stocks_input.split(',')[:5]
+    valid_stocks = []
+    for stock in stocks:
+        try:
+            data = yf.download(stock, start='2023-01-01', progress=False)
+            if not data.empty:
+                valid_stocks.append(stock)
+        except Exception as e:
+            print(f"Error fetching data for {stock}: {e}")
+
+    if not valid_stocks:
+        return render_template('home.html')
 
     plt.figure(figsize=(12, 6))
-    for stock in stocks:
+    for stock in valid_stocks:
         data = yf.download(stock, start='2023-01-01', progress=False)
         plt.plot(data.index, data['Close'], label=stock)
 
@@ -41,7 +55,6 @@ def analyze():
     plt.legend()
     plt.grid(True)
 
-    # Convert plot to base64 string
     img = io.BytesIO()
     plt.savefig(img, format='png', bbox_inches='tight')
     img.seek(0)

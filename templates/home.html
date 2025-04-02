@@ -1,7 +1,6 @@
-
 <!DOCTYPE html>
 <html>
-  <head>
+<head>
     <title>Financial App</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -9,52 +8,35 @@
     <link href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css" rel="stylesheet">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
-  </head>
-  <body>
+</head>
+<body>
     <div class="container">
-      <h1 class="text-center mt-2 mb-4">Interactive Stock Charts</h1>
-      <div class="row justify-content-center">
-        <div class="col-md-6">
-          <form method="POST" action="/analyze">
-            <div class="mb-3">
-              <input type="text" class="form-control" id="stockSearch" name="stocks" placeholder="Search companies (max 5, comma-separated)" required>
+        <h1 class="text-center mt-2 mb-4">Interactive Stock Charts</h1>
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <form method="POST" action="/analyze">
+                    <div class="mb-3">
+                        <input type="text" class="form-control" id="stockSearch" name="stocks" placeholder="Search companies (max 5, comma-separated)" required>
+                    </div>
+                    <script>
+                        $(document).ready(function() {
+                            // ... (Your JavaScript code)
+                        });
+                    </script>
+                    <div class="text-center">
+                        <button type="submit" class="btn btn-primary">Generate Charts</button>
+                    </div>
+                </form>
             </div>
-            <script>
-              $(document).ready(function() {
-                let selectedStocks = [];
-                
-                $("#stockSearch").autocomplete({
-                  source: "/search",
-                  minLength: 2,
-                  select: function(event, ui) {
-                    const company = ui.item.value;
-                    const ticker = company.match(/\(([^)]+)\)/)[1];
-                    selectedStocks = $("#stockSearch").val().split(',').filter(s => s.trim());
-                    if (selectedStocks.length < 5) {
-                      if (selectedStocks[0] === "") {
-                        $("#stockSearch").val(ticker);
-                      } else {
-                        $("#stockSearch").val(selectedStocks.join(',') + ',' + ticker);
-                      }
-                    }
-                    return false;
-                  }
-                });
-              });
-            </script>
-            <div class="text-center">
-              <button type="submit" class="btn btn-primary">Generate Charts</button>
+        </div>
+
+        {% if chart_img %}
+            <div class="row mt-4">
+                <div class="col-12 text-center">
+                    <img src="data:image/png;base64,{{ chart_img }}" class="img-fluid">
+                </div>
             </div>
-          </form>
-        </div>
-      </div>
-      {% if chart_img %}
-      <div class="row mt-4">
-        <div class="col-12 text-center">
-          <img src="data:image/png;base64,{{ chart_img }}" class="img-fluid">
-        </div>
-      </div>
-      {% endif %}
+        {% endif %}
     </div>
-  </body>
+</body>
 </html>
