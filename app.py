@@ -33,7 +33,10 @@ def home():
 @app.route('/analyze', methods=['POST'])
 def analyze():
     stocks_input = request.form['stocks'].replace(' ', '').upper()
-    stocks = stocks_input.split(',')[:5]
+    stocks = [s for s in stocks_input.split(',') if s][:5]  # Filter out empty strings
+    
+    # Set matplotlib to use Agg backend
+    plt.switch_backend('Agg')
     period = request.form.get('period', 'ytd')
     today = datetime.today()
 
