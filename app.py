@@ -14,7 +14,7 @@ COMPANIES = {}
 with open('companies.csv', 'r') as file:
     csv_reader = csv.DictReader(file)
     for row in csv_reader:
-        COMPANIES[f"{row['Company Name']} ({row['Ticker']})"] = row['Ticker']
+        COMPANIES[f"{row['Company Name']} ({row['Ticker Symbol']})"] = row['Ticker Symbol']
 
 @app.route('/search')
 def search():
