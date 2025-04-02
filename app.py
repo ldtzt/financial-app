@@ -1,9 +1,31 @@
 
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, jsonify
 import yfinance as yf
 import matplotlib.pyplot as plt
 import io
 import base64
+
+
+# Dictionary of companies and their tickers
+COMPANIES = {
+    "Apple (AAPL)": "AAPL",
+    "Microsoft (MSFT)": "MSFT",
+    "Amazon (AMZN)": "AMZN",
+    "Alphabet/Google (GOOGL)": "GOOGL",
+    "Meta/Facebook (META)": "META",
+    "Tesla (TSLA)": "TSLA",
+    "NVIDIA (NVDA)": "NVDA",
+    "Netflix (NFLX)": "NFLX",
+    "JPMorgan Chase (JPM)": "JPM",
+    "Walmart (WMT)": "WMT"
+}
+
+@app.route('/search')
+def search():
+    term = request.args.get('term', '').lower()
+    matches = [company for company in COMPANIES.keys() 
+              if term in company.lower()]
+    return jsonify(matches[:5])
 
 app = Flask(__name__)
 
