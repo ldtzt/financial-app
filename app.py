@@ -7,19 +7,14 @@ import base64
 
 app = Flask(__name__)
 
-# Dictionary of companies and their tickers
-COMPANIES = {
-    "Apple (AAPL)": "AAPL",
-    "Microsoft (MSFT)": "MSFT",
-    "Amazon (AMZN)": "AMZN",
-    "Alphabet/Google (GOOGL)": "GOOGL",
-    "Meta/Facebook (META)": "META",
-    "Tesla (TSLA)": "TSLA",
-    "NVIDIA (NVDA)": "NVDA",
-    "Netflix (NFLX)": "NFLX",
-    "JPMorgan Chase (JPM)": "JPM",
-    "Walmart (WMT)": "WMT"
-}
+import csv
+
+# Load companies from CSV file
+COMPANIES = {}
+with open('companies.csv', 'r') as file:
+    csv_reader = csv.DictReader(file)
+    for row in csv_reader:
+        COMPANIES[f"{row['Company Name']} ({row['Ticker']})"] = row['Ticker']
 
 @app.route('/search')
 def search():
