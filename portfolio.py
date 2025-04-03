@@ -73,10 +73,9 @@ def monte_carlo():
         cmap = LinearSegmentedColormap.from_list('mycmap', ['lightblue', 'steelblue'])
         max_n = n.max() if len(n) > 0 else 0
         if max_n > 0:  # Robust check
-            for rect in patches.patches:
-                height = rect.get_height()
-                color = cmap(height / max_n)
-                rect.set_facecolor(color)
+            for patch in patches:
+                color = cmap(patch.get_height() / max_n)
+                patch.set_facecolor(color)
 
         # Overlay normal distribution curve
         x = np.linspace(min(end_prices_pct_change), max(end_prices_pct_change), 100)
