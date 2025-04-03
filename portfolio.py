@@ -74,7 +74,8 @@ def monte_carlo():
         max_n = float(n.max()) if len(n) > 0 else 0
         if max_n > 0:  # Robust check
             for count, patch in zip(n, patches):
-                color = cmap(count.item() / max_n)
+                normalized_height = float(count) / max_n
+                color = cmap(normalized_height)
                 patch.set_facecolor(color)
 
         # Overlay normal distribution curve
