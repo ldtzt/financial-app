@@ -1,7 +1,5 @@
-# app.py (Stock Chart App)
+# app.py
 from flask import Flask, Blueprint, render_template, request, jsonify
-
-app = Flask(__name__)
 import yfinance as yf
 import matplotlib.pyplot as plt
 import io
@@ -10,17 +8,11 @@ import csv
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import pandas as pd
-
-main_bp = Blueprint('main', __name__)
 from portfolio import portfolio_bp
 
-app.register_blueprint(main_bp)
-app.register_blueprint(portfolio_bp)
+app = Flask(__name__)
+main_bp = Blueprint('main', __name__)
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
-
-# Load companies from CSV file
 COMPANIES = {}
 try:
     with open('companies.csv', 'r', encoding='utf-8') as file:
@@ -117,3 +109,9 @@ def analyze():
         return jsonify({'chart_img': chart_img})
     else:
         return render_template('home.html', chart_img=chart_img)
+
+app.register_blueprint(main_bp)
+app.register_blueprint(portfolio_bp, url_prefix='/portfolio')
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000, debug=True)

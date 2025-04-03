@@ -25,7 +25,7 @@
                 </div>
             </nav>
 
-            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 mt-4 mx-auto">
                 <div id="stockChart" class="app-content">
                     <form id="analyzeForm" method="POST" action="/analyze">
                         <div class="mb-3">
@@ -73,7 +73,14 @@
                             <button type="button" id="runSimulation" class="btn btn-primary">Run Simulation</button>
                         </form>
                     </div>
-                    <div id="monteCarloResults"></div>
+                    <div id="monteCarloResults">
+                        {% if monte_carlo_charts %}
+                            {% for stock, chart_img in monte_carlo_charts.items() %}
+                                <h2>{{ stock }} Simulation:</h2>
+                                <img src="data:image/png;base64,{{ chart_img }}" class="img-fluid">
+                            {% endfor %}
+                        {% endif %}
+                    </div>
                 </div>
             </main>
         </div>
@@ -119,13 +126,60 @@
                     type: 'POST',
                     data: $('#monteCarloForm').serialize(),
                     success: function(response) {
-                        $('#monteCarloResults').html(JSON.stringify(response));
+                        if(response.error){
+                            $('#monteCarloResults').html(response.error);
+                            return;
+                        }
+                        let chartsHTML = '';
+                        for (let stock in response) {
+                            chartsHTML += `<h2>${stock} Simulation:</h2><img src="data:image/png;base64,${response[stock]}" class="img-fluid">`;
+                        }
+                        $('#monteCarloResults').html(chartsHTML);
                     },
                     error: function(error) {
                         console.error("Error:", error);
                     }
                 });
             });
+
+            function setupAutocomplete(inputId) {
+                $(inputId).on("input", function() {
+                    let inputVal = $(this).val();
+                    let lastCommaIndex = inputVal.lastIndexOf(",");
+                    let currentTerm;
+
+                    if (lastCommaIndex !== -1) {
+                        currentTerm = inputVal.substring(lastCommaIndex + 1).trim();
+                    } else {
+                        currentTerm = inputVal;
+                    }
+
+                    $(this).autocomplete({
+                        source: function(request, response) {
+                            $.ajax({
+                                url: "/search",
+                                dataType: "json",
+                                data: { term: currentTerm },
+                                success: function(data) {
+                                    response(data);
+                                }
+                            });
+                        },
+                        select: function(event, ui) {
+                            let fullVal = $(inputId).val();
+                            if (lastCommaIndex !== -1) {
+                                $(inputId).val(fullVal.substring(0, lastCommaIndex + 1) + " " + ui.item.value + ", ");
+                            } else {
+                                $(inputId).val(ui.item.value + ", ");
+                            }
+                            return false;
+                        }
+                    });
+                });
+            }
+
+            setupAutocomplete("#stockSearch");
+            setupAutocomplete("#mcStocks");
         });
     </script>
 </body>
