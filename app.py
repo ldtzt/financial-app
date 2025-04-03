@@ -1,5 +1,7 @@
 # app.py (Stock Chart App)
-from flask import Blueprint, render_template, request, jsonify
+from flask import Flask, Blueprint, render_template, request, jsonify
+
+app = Flask(__name__)
 import yfinance as yf
 import matplotlib.pyplot as plt
 import io
@@ -10,6 +12,13 @@ from dateutil.relativedelta import relativedelta
 import pandas as pd
 
 main_bp = Blueprint('main', __name__)
+from portfolio import portfolio_bp
+
+app.register_blueprint(main_bp)
+app.register_blueprint(portfolio_bp)
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
 
 # Load companies from CSV file
 COMPANIES = {}
