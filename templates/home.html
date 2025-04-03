@@ -47,14 +47,19 @@
         {% if chart_img %}
             <div class="row mt-4">
                 <div class="col-12 text-center">
-                    <img id="chartImage" src="data:image/png;base64,{{ chart_img }}" class="img-fluid">
-                    <div class="btn-group mt-3" role="group">
-                        <button type="button" class="btn btn-outline-primary period-btn" data-period="ytd">YTD</button>
-                        <button type="button" class="btn btn-outline-primary period-btn" data-period="5y">5Y</button>
-                        <button type="button" class="btn btn-outline-primary period-btn" data-period="10y">10Y</button>
-                        <button type="button" class="btn btn-outline-primary period-btn" data-period="15y">15Y</button>
-                        <button type="button" class="btn btn-outline-primary period-btn" data-period="20y">20Y</button>
-                        <button type="button" class="btn btn-outline-primary period-btn" data-period="25y">25Y</button>
+                    <div style="position: relative;">
+                        <img id="chartImage" src="data:image/png;base64,{{ chart_img }}" class="img-fluid">
+                        <div style="position: absolute; top: 10px; right: 10px;">
+                            <select id="periodSelector">
+                                <option value="ytd">YTD</option>
+                                <option value="5y">5 Years</option>
+                                <option value="10y">10 Years</option>
+                                <option value="15y">15 Years</option>
+                                <option value="20y">20 Years</option>
+                                <option value="25y">25 Years</option>
+                            </select>
+                            <input type="checkbox" id="logScaleCheckbox"> Log Scale
+                        </div>
                     </div>
                 </div>
             </div>
@@ -63,30 +68,30 @@
 
     <script>
         $(document).ready(function() {
-            $('.period-btn').on('click', function() {
-                $('.period-btn').removeClass('active');
-                $(this).addClass('active');
+            $('#periodSelector, #logScaleCheckbox').on('change', function() {
                 var currentStocks = $('#stockSearch').val();
-                var period = $(this).data('period');
-                
+                var period = $('#periodSelector').val();
+                var logScale = $('#logScaleCheckbox').is(':checked');
+
                 $.ajax({
                     url: '/analyze',
                     type: 'POST',
                     data: {
                         stocks: currentStocks,
-                        period: period
+                        period: period,
+                        log_scale: logScale
+                    },
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
                     },
                     success: function(response) {
-                        var newDoc = new DOMParser().parseFromString(response, 'text/html');
-                        var newChartSrc = $(newDoc).find('#chartImage').attr('src');
-                        if (newChartSrc) {
-                            $('#chartImage').attr('src', newChartSrc);
-                        }
+                        $('#chartImage').attr('src', 'data:image/png;base64,' + response.chart_img);
+                    },
+                    error: function(error){
+                        console.log(error);
                     }
                 });
             });
-            // Activate YTD button by default
-            $('.period-btn[data-period="ytd"]').addClass('active');
         });
     </script>
 </body>

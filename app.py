@@ -34,11 +34,12 @@ def home():
 def analyze():
     stocks_input = request.form['stocks'].replace(' ', '').upper()
     stocks = [s for s in stocks_input.split(',') if s][:5]  # Filter out empty strings
-    
+
     # Set matplotlib to use Agg backend
     plt.switch_backend('Agg')
     period = request.form.get('period', 'ytd')
     today = datetime.today()
+    log_scale = request.form.get('log_scale', 'false') == 'true'
 
     if period == 'ytd':
         start_date = datetime(today.year, 1, 1)
@@ -57,13 +58,13 @@ def analyze():
 
     valid_stocks = []
     stock_data = {}
-    company_names = {} # added this dict
+    company_names = {}
 
     for stock in stocks:
         try:
             ticker = stock.split('(')[-1].split(')')[0]
-            company_name = stock.split('(')[0].strip() # added this line
-            company_names[ticker] = company_name # added this line
+            company_name = stock.split('(')[0].strip()
+            company_names[ticker] = company_name
             print(f"Attempting to download data for: {ticker}")
             data = yf.download(ticker, start=start_date, progress=False)
             if not data.empty:
@@ -77,18 +78,23 @@ def analyze():
             print(f"Error fetching data for {ticker}: {e}")
 
     if not valid_stocks:
-        return render_template('home.html')
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'error': 'No data available'})
+        else:
+            return render_template('home.html')
 
     plt.figure(figsize=(12, 6))
     for stock in valid_stocks:
         data = stock_data[stock]
         initial_price = data['Close'].iloc[0]
-        percentage_change = (data['Close'] / initial_price) * 100 # removed -1 and added *100
-        plt.plot(data.index, percentage_change, label=company_names[stock]) # company names in legend.
+        percentage_change = (data['Close'] / initial_price) * 100
+        plt.plot(data.index, percentage_change, label=company_names[stock])
 
     plt.title('Stock Price Percentage Change (Initial Price = 100)')
     plt.xlabel('Date')
     plt.ylabel('Percentage of Initial Price')
+    if log_scale:
+        plt.yscale('log')
     plt.legend()
     plt.grid(True)
 
@@ -98,7 +104,10 @@ def analyze():
     chart_img = base64.b64encode(img.getvalue()).decode()
     plt.close()
 
-    return render_template('home.html', chart_img=chart_img)
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({'chart_img': chart_img})
+    else:
+        return render_template('home.html', chart_img=chart_img)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
