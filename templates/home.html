@@ -10,64 +10,84 @@
     <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
 </head>
 <body>
-    <div class="container">
-        <h1 class="text-center mt-2 mb-4">Interactive Stock Charts</h1>
-        <div class="row justify-content-center">
-            <div class="col-md-6">
-                <form id="analyzeForm" method="POST" action="/analyze">
-                    <div class="mb-3">
-                        <input type="text" class="form-control" id="stockSearch" name="stocks" placeholder="Search companies (max 5, comma-separated)" required value="{{ request.form['stocks'] if request.form['stocks'] else '' }}">
-                    </div>
-                    <script>
-                        $(document).ready(function() {
-                            $("#stockSearch").autocomplete({
-                                source: function(request, response) {
-                                    var term = request.term.split(',').pop().trim();
-                                    $.getJSON("/search", { term: term }, function(data) { response(data); });
-                                },
-                                minLength: 2,
-                                select: function(event, ui) {
-                                    var terms = this.value.split(',');
-                                    terms.pop();
-                                    terms.push(ui.item.value);
-                                    terms.push("");
-                                    this.value = terms.join(', ');
-                                    return false;
-                                }
-                            });
-                        });
-                    </script>
-                    <div class="text-center">
-                        <button type="submit" class="btn btn-primary">Generate Charts</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        {% if chart_img %}
-            <div class="row mt-4">
-                <div class="col-12 text-center">
-                    <div style="position: relative;">
-                        <img id="chartImage" src="data:image/png;base64,{{ chart_img }}" class="img-fluid">
-                        <div style="position: absolute; top: 10px; right: 10px;">
-                            <select id="periodSelector">
-                                <option value="ytd">YTD</option>
-                                <option value="5y">5 Years</option>
-                                <option value="10y">10 Years</option>
-                                <option value="15y">15 Years</option>
-                                <option value="20y">20 Years</option>
-                                <option value="25y">25 Years</option>
-                            </select>
-                            <input type="checkbox" id="logScaleCheckbox"> Log Scale
-                        </div>
-                    </div>
+    <div class="container-fluid">
+        <div class="row">
+            <nav id="appNav" class="col-md-3 col-lg-2 d-md-block bg-light sidebar">
+                <div class="position-sticky pt-3">
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <button class="nav-link active app-btn" data-app="stockChart">Stock Price Chart</button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link app-btn" data-app="portfolioBuilder">Portfolio Builder</button>
+                        </li>
+                    </ul>
                 </div>
-            </div>
-        {% endif %}
-    </div>
+            </nav>
 
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+                <div id="stockChart" class="app-content">
+                    <form id="analyzeForm" method="POST" action="/analyze">
+                        <div class="mb-3">
+                            <input type="text" class="form-control" id="stockSearch" name="stocks" placeholder="Search companies (max 5, comma-separated)" required value="{{ request.form['stocks'] if request.form['stocks'] else '' }}">
+                        </div>
+                        <div class="text-center">
+                            <button type="submit" class="btn btn-primary">Generate Charts</button>
+                        </div>
+                    </form>
+                    {% if chart_img %}
+                        <div class="row mt-4">
+                            <div class="col-12 text-center">
+                                <div style="position: relative;">
+                                    <img id="chartImage" src="data:image/png;base64,{{ chart_img }}" class="img-fluid">
+                                    <div style="position: absolute; top: 10px; right: 10px;">
+                                        <select id="periodSelector">
+                                            <option value="ytd">YTD</option>
+                                            <option value="5y">5 Years</option>
+                                            <option value="10y">10 Years</option>
+                                            <option value="15y">15 Years</option>
+                                            <option value="20y">20 Years</option>
+                                            <option value="25y">25 Years</option>
+                                        </select>
+                                        <input type="checkbox" id="logScaleCheckbox"> Log Scale
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div id="portfolioBuilder" class="app-content" style="display: none;">
+                    <h2>Portfolio Builder</h2>
+                    <div id="monteCarloInputs">
+                        <form id="monteCarloForm">
+                            <div class="mb-3">
+                                <input type="text" class="form-control" id="mcStocks" name="stocks" placeholder="Stocks for simulation (comma-separated)" required>
+                            </div>
+                            <div class="mb-3">
+                                <input type="number" class="form-control" id="mcDays" name="days" placeholder="Days to simulate" value="365">
+                            </div>
+                            <div class="mb-3">
+                                <input type="number" class="form-control" id="mcSimulations" name="simulations" placeholder="Number of simulations" value="100">
+                            </div>
+                            <button type="button" id="runSimulation" class="btn btn-primary">Run Simulation</button>
+                        </form>
+                    </div>
+                    <div id="monteCarloResults"></div>
+                </div>
+            </main>
+        </div>
+    </div>
     <script>
         $(document).ready(function() {
+            $('.app-btn').click(function() {
+                $('.app-content').hide();
+                $('#' + $(this).data('app')).show();
+                $('.app-btn').removeClass('active');
+                $(this).addClass('active');
+            });
+            $("#stockChart").show();
+
             $('#periodSelector, #logScaleCheckbox').on('change', function() {
                 var currentStocks = $('#stockSearch').val();
                 var period = $('#periodSelector').val();
@@ -87,8 +107,22 @@
                     success: function(response) {
                         $('#chartImage').attr('src', 'data:image/png;base64,' + response.chart_img);
                     },
-                    error: function(error){
-                        console.log(error);
+                    error: function(error) {
+                        console.error("Error:", error);
+                    }
+                });
+            });
+
+            $('#runSimulation').click(function() {
+                $.ajax({
+                    url: '/portfolio/monte_carlo',
+                    type: 'POST',
+                    data: $('#monteCarloForm').serialize(),
+                    success: function(response) {
+                        $('#monteCarloResults').html(JSON.stringify(response));
+                    },
+                    error: function(error) {
+                        console.error("Error:", error);
                     }
                 });
             });

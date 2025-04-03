@@ -1,4 +1,5 @@
-from flask import Flask, render_template, request, jsonify
+# app.py (Stock Chart App)
+from flask import Blueprint, render_template, request, jsonify
 import yfinance as yf
 import matplotlib.pyplot as plt
 import io
@@ -8,7 +9,7 @@ from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import pandas as pd
 
-app = Flask(__name__)
+main_bp = Blueprint('main', __name__)
 
 # Load companies from CSV file
 COMPANIES = {}
@@ -20,22 +21,21 @@ try:
 except FileNotFoundError:
     print("companies.csv not found")
 
-@app.route('/search')
+@main_bp.route('/search')
 def search():
     term = request.args.get('term', '').lower()
     matches = [company for company in COMPANIES.keys() if term in company.lower()]
     return jsonify(matches[:5])
 
-@app.route('/')
+@main_bp.route('/')
 def home():
     return render_template('home.html')
 
-@app.route('/analyze', methods=['POST'])
+@main_bp.route('/analyze', methods=['POST'])
 def analyze():
     stocks_input = request.form['stocks'].replace(' ', '').upper()
-    stocks = [s for s in stocks_input.split(',') if s][:5]  # Filter out empty strings
+    stocks = [s for s in stocks_input.split(',') if s][:5]
 
-    # Set matplotlib to use Agg backend
     plt.switch_backend('Agg')
     period = request.form.get('period', 'ytd')
     today = datetime.today()
@@ -108,6 +108,3 @@ def analyze():
         return jsonify({'chart_img': chart_img})
     else:
         return render_template('home.html', chart_img=chart_img)
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
