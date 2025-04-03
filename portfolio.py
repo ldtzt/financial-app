@@ -71,10 +71,10 @@ def monte_carlo():
 
         # Apply gradient to bars
         cmap = LinearSegmentedColormap.from_list('mycmap', ['lightblue', 'steelblue'])
-        max_n = n.max() if len(n) > 0 else 0
+        max_n = float(n.max()) if len(n) > 0 else 0
         if max_n > 0:  # Robust check
             for count, patch in zip(n, patches):
-                color = cmap(float(count) / float(max_n))
+                color = cmap(count.item() / max_n)
                 patch.set_facecolor(color)
 
         # Overlay normal distribution curve
