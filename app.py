@@ -13,11 +13,14 @@ import sqlite3
 import hashlib
 import secrets
 from functools import wraps
+import sys
+print(sys.executable)
 
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(16)
 
 main_bp = Blueprint('main', __name__)
+
 
 COMPANIES = {}
 try:

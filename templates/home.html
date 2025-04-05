@@ -43,11 +43,19 @@
         </form>
     </div>
     <div id="portfolioResults"></div>
+    <div id="portfolioGraphs" style="display: none;">
+        <div id="returnPlot" style="width: 100%;"></div>
+        <div style="display: flex;">
+            <div id="pieChart" style="width: 50%;"></div>
+            <div id="industryPieChart" style="width: 50%;"></div>
+        </div>
+        <div id="returnHeatmap" style="width: 100%;"></div>
+    </div>
+    <div id="totalWeight" style="margin-top: 10px;">Total Weight: 0%</div>
 </div>
 
 <script>
     $(document).ready(function() {
-
         $('#periodSelector, #logScaleCheckbox').on('change', function() {
             var currentStocks = $('#stockSearch').val();
             var period = $('#periodSelector').val();
@@ -78,7 +86,7 @@
         $('#addStock').click(function() {
             if (stockCount < 10) {
                 stockCount++;
-                $('#stockInputs').append(`
+                let newStockInput = `
                     <div class="mb-3">
                         <label for="stock${stockCount}" class="form-label">Stock ${stockCount}:</label>
                         <input type="text" class="form-control stock-input" id="stock${stockCount}" name="stock${stockCount}" placeholder="Stock ${stockCount}">
@@ -88,7 +96,8 @@
                             <span id="sliderValue${stockCount}">0%</span>
                         </div>
                     </div>
-                `);
+                `;
+                $('#stockInputs').append(newStockInput);
                 setupSlider(stockCount);
                 setupAutocomplete(`#stock${stockCount}`);
             }
@@ -98,9 +107,31 @@
             $(`#slider${index}`).slider({
                 min: 0,
                 max: 100,
+                step: 1, // Ensure only whole number values
                 slide: function(event, ui) {
+                    let totalWeight = 0;
+                    $('.slider').each(function() {
+                        totalWeight += $(this).slider('value');
+                    });
+
+                    let otherSliders = $('.slider').not(`#slider${index}`);
+                    let otherSlidersTotal = 0;
+
+                    otherSliders.each(function() {
+                        otherSlidersTotal += $(this).slider('value');
+                    });
+
+                    let maxForCurrent = 100 - otherSlidersTotal;
+
+                    if (ui.value > maxForCurrent) {
+                        return false; // Prevent slider from exceeding max
+                    }
+
                     $(`#allocation${index}`).val(ui.value);
                     $(`#sliderValue${index}`).text(ui.value + '%');
+
+                    // Call updateTotalWeight() after setting the new value
+                    setTimeout(updateTotalWeight, 0);
                 }
             });
         }
@@ -133,7 +164,7 @@
                         return false;
                     }
                 });
-            }
+            });
         }
 
         $('#equalWeights').click(function() {
@@ -145,6 +176,7 @@
                 $(`#allocation${index + 1}`).val(equalWeight);
                 $(`#sliderValue${index + 1}`).text(equalWeight + '%');
             });
+            updateTotalWeight()
         });
 
         $('#calculatePortfolio').click(function() {
@@ -153,15 +185,70 @@
                 type: 'POST',
                 data: $('#portfolioForm').serialize(),
                 success: function(response) {
-                    $('#portfolioResults').html(JSON.stringify(response));
+                    if (response.error) {
+                        $('#portfolioResults').html(`<p style="color: red;">${response.error}</p>`);
+                        $('#portfolioGraphs').hide();
+                    } else {
+                        $('#portfolioResults').html('');
+                        $('#returnPlot').html(`<img src="data:image/png;base64,${response.return_plot}" class="img-fluid">`);
+                        $('#pieChart').html(`<img src="data:image/png;base64,${response.pie_chart}" class="img-fluid">`);
+                        $('#portfolioGraphs').show();
+                        $('#portfolioBuilder').hide(); // Hide the portfolio builder
+
+                        if (response.industry_pie_chart){
+                            $('#industryPieChart').html(`<img src="data:image/png;base64,${response.industry_pie_chart}" class="img-fluid">`);
+                        } else {
+                            $('#industryPieChart').html(''); // Clear if no industry chart
+                        }
+                        if(response.heatmap_img){
+                            $("#returnHeatmap").html(`<img src="data:image/png;base64,${response.heatmap_img}" class="img-fluid">`)
+                        } else {
+                            $('#returnHeatmap').html(''); // Clear if no heatmap
+                        }
+                    }
                 },
                 error: function(error) {
                     console.error("Error:", error);
+                    $('#portfolioResults').html('<p style="color: red;">An error occurred.</p>');
+                    $('#portfolioGraphs').hide();
                 }
             });
         });
+
+        function updateTotalWeight() {
+            let totalWeight = 0;
+            let sliders = $('.slider');
+
+            sliders.each(function() {
+                totalWeight += $(this).slider('value');
+            });
+
+            // Round to the nearest whole number
+            totalWeight = Math.round(totalWeight);
+
+            $('#totalWeight').text('Total Weight: ' + totalWeight + '%');
+
+            sliders.each(function(index) {
+                let currentSlider = $(this);
+                let otherSliders = sliders.not(currentSlider);
+                let otherSlidersTotal = 0;
+
+                otherSliders.each(function() {
+                    otherSlidersTotal += $(this).slider('value');
+                });
+
+                let maxForCurrent = 100 - otherSlidersTotal;
+
+                if (maxForCurrent < 0) {
+                    maxForCurrent = 0;
+                }
+
+                currentSlider.slider('option', 'max', maxForCurrent);
+            });
+        }
     });
 </script>
+
 <style>
     .slider-container {
         display: flex;
