@@ -56,16 +56,17 @@
     <script src="https://code.jquery.com/ui/1.13.1/jquery-ui.min.js"></script>
     <script>
         $(document).ready(function() {
-            $('.app-btn').click(function() {
+            function switchApp() {
                 $('.app-content').hide();
-                $('#' + $(this).data('app')).show();
+                var appId = $(this).data('app');
+                $('#' + appId).show();
                 $('.app-btn').removeClass('active');
                 $(this).addClass('active');
-            });
-            $("#stockChart").show();
+            }
             
-            // Ensure first nav item is active by default
+            $('.app-btn').on('click', switchApp);
             $('.nav-item:first-child .app-btn').addClass('active');
+            $("#stockChart").show();
         });
     </script>
 </body>

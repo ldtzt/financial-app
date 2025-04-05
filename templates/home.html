@@ -47,13 +47,6 @@
 
 <script>
     $(document).ready(function() {
-        $('.app-btn').click(function() {
-            $('.app-content').hide();
-            $('#' + $(this).data('app')).show();
-            $('.app-btn').removeClass('active');
-            $(this).addClass('active');
-        });
-        $("#stockChart").show();
 
         $('#periodSelector, #logScaleCheckbox').on('change', function() {
             var currentStocks = $('#stockSearch').val();
