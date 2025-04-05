@@ -1,5 +1,5 @@
 # app.py
-from flask import Flask, Blueprint, render_template, request, jsonify
+from flask import Flask, Blueprint, render_template, request, jsonify, session, flash, redirect, url_for
 import yfinance as yf
 import matplotlib.pyplot as plt
 import io
@@ -9,8 +9,14 @@ from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import pandas as pd
 from portfolio import portfolio_bp
+import sqlite3
+import hashlib
+import secrets
+from functools import wraps
 
 app = Flask(__name__)
+app.secret_key = secrets.token_hex(16)
+
 main_bp = Blueprint('main', __name__)
 
 COMPANIES = {}
@@ -21,6 +27,38 @@ try:
             COMPANIES[f"{row['Company Name']} ({row['Ticker Symbol']})"] = row['Ticker Symbol']
 except FileNotFoundError:
     print("companies.csv not found")
+
+def create_users_table():
+    conn = sqlite3.connect('users.db')
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT UNIQUE,
+            password TEXT
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+create_users_table()
+
+def get_db_connection():
+    conn = sqlite3.connect('users.db')
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
+
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            flash('You must be logged in to access this page.', 'warning')
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
 
 @main_bp.route('/search')
 def search():
@@ -109,6 +147,66 @@ def analyze():
         return jsonify({'chart_img': chart_img})
     else:
         return render_template('home.html', chart_img=chart_img)
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        email = request.form['email']
+        password = request.form['password']
+        hashed_password = hash_password(password)
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute('INSERT INTO users (email, password) VALUES (?, ?)', (email, hashed_password))
+            conn.commit()
+            flash('Registration successful. Please log in.', 'success')
+            return redirect(url_for('login'))
+        except sqlite3.IntegrityError:
+            flash('Email already registered.', 'error')
+        finally:
+            conn.close()
+
+    return render_template('register.html')
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        email = request.form['email']
+        password = request.form['password']
+        hashed_password = hash_password(password)
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM users WHERE email = ? AND password = ?', (email, hashed_password))
+        user = cursor.fetchone()
+        conn.close()
+
+        if user:
+            session['user_id'] = user['id']
+            flash('Login successful.', 'success')
+            return redirect(url_for('profile'))
+        else:
+            flash('Invalid email or password.', 'error')
+
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    session.pop('user_id', None)
+    flash('Logged out.', 'info')
+    return redirect(url_for('login'))
+
+@app.route('/profile')
+@login_required
+def profile():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM users WHERE id = ?', (session['user_id'],))
+    user = cursor.fetchone()
+    conn.close()
+
+    return render_template('profile.html', user=user)
 
 app.register_blueprint(main_bp)
 app.register_blueprint(portfolio_bp, url_prefix='/portfolio')
