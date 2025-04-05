@@ -52,6 +52,8 @@
             </main>
         </div>
     </div>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.13.1/jquery-ui.min.js"></script>
     <script>
         $(document).ready(function() {
             $('.app-btn').click(function() {
@@ -61,6 +63,9 @@
                 $(this).addClass('active');
             });
             $("#stockChart").show();
+            
+            // Ensure first nav item is active by default
+            $('.nav-item:first-child .app-btn').addClass('active');
         });
     </script>
 </body>
