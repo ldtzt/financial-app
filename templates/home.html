@@ -31,59 +31,41 @@
     {% endif %}
 </div>
 
-<div id="portfolioBuilder" class="app-content" style="display: none;">
+<div id="portfolioBuilder" class="app-content">
     <h2>Portfolio Builder</h2>
-    <div id="portfolioInputs">
-        <form id="portfolioForm">
-            <div id="stockInputs">
-            </div>
-            <button type="button" id="addStock" class="btn btn-secondary">Add Stock</button>
-            <button type="button" id="equalWeights" class="btn btn-info">Equal Weights</button>
-            <button type="button" id="calculatePortfolio" class="btn btn-primary">Calculate Portfolio</button>
-        </form>
+    <div style="display: flex;">
+        <!-- Stock picking section -->
+        <div id="portfolioInputs" style="width: 60%;">
+            <form id="portfolioForm">
+                <div id="stockInputs"></div>
+                <button type="button" id="addStock" class="btn btn-secondary">Add Stock</button>
+                <button type="button" id="equalWeights" class="btn btn-info">Equal Weights</button>
+                <button type="button" id="calculatePortfolio" class="btn btn-primary">Calculate Portfolio</button>
+            </form>
+        </div>
+
+        <!-- Portfolio allocation pie chart -->
+        <div id="pieChartSection" style="width: 40%; text-align: center;">
+            <h3>Portfolio Allocation</h3>
+            <img id="pieChart" src="" alt="Portfolio Allocation Pie Chart" class="img-fluid" />
+        </div>
     </div>
     <div id="portfolioResults"></div>
     <div id="portfolioGraphs" style="display: none;">
         <div id="returnPlot" style="width: 100%;"></div>
         <div style="display: flex;">
-            <div id="pieChart" style="width: 50%;"></div>
             <div id="industryPieChart" style="width: 50%;"></div>
+            <div id="returnHeatmap" style="width: 50%;"></div>
         </div>
-        <div id="returnHeatmap" style="width: 100%;"></div>
     </div>
     <div id="totalWeight" style="margin-top: 10px;">Total Weight: 0%</div>
 </div>
 
 <script>
-    $(document).ready(function() {
-        $('#periodSelector, #logScaleCheckbox').on('change', function() {
-            var currentStocks = $('#stockSearch').val();
-            var period = $('#periodSelector').val();
-            var logScale = $('#logScaleCheckbox').is(':checked');
-
-            $.ajax({
-                url: '/analyze',
-                type: 'POST',
-                data: {
-                    stocks: currentStocks,
-                    period: period,
-                    log_scale: logScale
-                },
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                success: function(response) {
-                    $('#chartImage').attr('src', 'data:image/png;base64,' + response.chart_img);
-                },
-                error: function(error) {
-                    console.error("Error:", error);
-                }
-            });
-        });
-
+    $(document).ready(function () {
         let stockCount = 0;
 
-        $('#addStock').click(function() {
+        $('#addStock').click(function () {
             if (stockCount < 10) {
                 stockCount++;
                 let newStockInput = `
@@ -100,6 +82,9 @@
                 $('#stockInputs').append(newStockInput);
                 setupSlider(stockCount);
                 setupAutocomplete(`#stock${stockCount}`);
+                updateTotalWeight();
+                updateSliderLimits();
+                updatePieChart(); // Update pie chart after adding a stock
             }
         });
 
@@ -107,37 +92,56 @@
             $(`#slider${index}`).slider({
                 min: 0,
                 max: 100,
-                step: 1, // Ensure only whole number values
-                slide: function(event, ui) {
-                    let totalWeight = 0;
-                    $('.slider').each(function() {
-                        totalWeight += $(this).slider('value');
-                    });
-
-                    let otherSliders = $('.slider').not(`#slider${index}`);
-                    let otherSlidersTotal = 0;
-
-                    otherSliders.each(function() {
-                        otherSlidersTotal += $(this).slider('value');
-                    });
-
-                    let maxForCurrent = 100 - otherSlidersTotal;
-
-                    if (ui.value > maxForCurrent) {
-                        return false; // Prevent slider from exceeding max
+                step: 1,
+                slide: function (event, ui) {
+                    const totalWeight = calculateTotalWeight(index, ui.value);
+                    if (totalWeight > 100) {
+                        return false; // Prevent the slider from exceeding 100% total weight
                     }
-
                     $(`#allocation${index}`).val(ui.value);
                     $(`#sliderValue${index}`).text(ui.value + '%');
-
-                    // Call updateTotalWeight() after setting the new value
-                    setTimeout(updateTotalWeight, 0);
+                    updateTotalWeight();
+                    updateSliderLimits();
+                },
+                change: function () {
+                    updateSliderLimits(); // Recalculate limits when the slider value changes
                 }
             });
         }
 
+        function calculateTotalWeight(changingIndex = null, newValue = null) {
+            let totalWeight = 0;
+            $('.slider').each(function (index) {
+                if (changingIndex !== null && index + 1 === changingIndex) {
+                    totalWeight += newValue; // Use the new value for the changing slider
+                } else {
+                    totalWeight += $(this).slider('value');
+                }
+            });
+            return totalWeight;
+        }
+
+        function updateTotalWeight() {
+            let totalWeight = 0;
+            $('.slider').each(function () {
+                totalWeight += $(this).slider('value');
+            });
+            $('#totalWeight').text('Total Weight: ' + totalWeight + '%');
+        }
+
+        function updateSliderLimits() {
+            const totalWeight = calculateTotalWeight();
+            const remainingWeight = 100 - totalWeight;
+
+            $('.slider').each(function () {
+                const currentValue = $(this).slider('value');
+                const maxLimit = currentValue + remainingWeight;
+                $(this).slider('option', 'max', maxLimit);
+            });
+        }
+
         function setupAutocomplete(inputId) {
-            $(inputId).on("input", function() {
+            $(inputId).on("input", function () {
                 let inputVal = $(this).val();
                 let lastCommaIndex = inputVal.lastIndexOf(",");
                 let currentTerm;
@@ -149,17 +153,17 @@
                 }
 
                 $(this).autocomplete({
-                    source: function(request, response) {
+                    source: function (request, response) {
                         $.ajax({
                             url: "/search",
                             dataType: "json",
                             data: { term: currentTerm },
-                            success: function(data) {
+                            success: function (data) {
                                 response(data);
                             }
                         });
                     },
-                    select: function(event, ui) {
+                    select: function (event, ui) {
                         $(inputId).val(ui.item.value);
                         return false;
                     }
@@ -167,85 +171,81 @@
             });
         }
 
-        $('#equalWeights').click(function() {
-            let numStocks = $('.stock-input').length;
-            let equalWeight = Math.round(100 / numStocks);
+        function updatePieChart() {
+            const stocks = [];
+            const allocations = [];
 
-            $('.slider').each(function(index) {
+            // Collect stock and allocation data
+            $('.stock-input').each(function (index) {
+                const stock = $(this).val().trim();
+                const allocation = parseFloat($(`#allocation${index + 1}`).val());
+                if (stock && !isNaN(allocation)) {
+                    stocks.push(stock);
+                    allocations.push(allocation / 100); // Convert to decimal
+                }
+            });
+
+            // Send data to the server
+            fetch('/portfolio/update_pie_chart', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ stocks, allocations }),
+            })
+                .then((response) => response.json())
+                .then((data) => {
+                    if (data.error) {
+                        console.error(data.error);
+                    } else {
+                        // Update the pie chart image
+                        $('#pieChart').attr('src', `data:image/png;base64,${data.pie_chart}`);
+                    }
+                })
+                .catch((error) => console.error('Error updating pie chart:', error));
+        }
+
+        $('#equalWeights').click(function () {
+            const numStocks = $('.stock-input').length;
+            const equalWeight = Math.round(100 / numStocks);
+
+            $('.slider').each(function (index) {
                 $(this).slider('value', equalWeight);
                 $(`#allocation${index + 1}`).val(equalWeight);
                 $(`#sliderValue${index + 1}`).text(equalWeight + '%');
             });
-            updateTotalWeight()
+            updatePieChart(); // Update pie chart after equal weights
+            updateTotalWeight(); // Update total weight after equal weights
         });
 
-        $('#calculatePortfolio').click(function() {
+        $('#calculatePortfolio').click(function () {
             $.ajax({
                 url: '/portfolio/calculate',
                 type: 'POST',
                 data: $('#portfolioForm').serialize(),
-                success: function(response) {
+                success: function (response) {
                     if (response.error) {
                         $('#portfolioResults').html(`<p style="color: red;">${response.error}</p>`);
                         $('#portfolioGraphs').hide();
                     } else {
                         $('#portfolioResults').html('');
                         $('#returnPlot').html(`<img src="data:image/png;base64,${response.return_plot}" class="img-fluid">`);
-                        $('#pieChart').html(`<img src="data:image/png;base64,${response.pie_chart}" class="img-fluid">`);
                         $('#portfolioGraphs').show();
-                        $('#portfolioBuilder').hide(); // Hide the portfolio builder
-
-                        if (response.industry_pie_chart){
-                            $('#industryPieChart').html(`<img src="data:image/png;base64,${response.industry_pie_chart}" class="img-fluid">`);
-                        } else {
-                            $('#industryPieChart').html(''); // Clear if no industry chart
+                        if (response.pie_chart) {
+                            $('#pieChart').attr('src', `data:image/png;base64,${response.pie_chart}`);
                         }
-                        if(response.heatmap_img){
-                            $("#returnHeatmap").html(`<img src="data:image/png;base64,${response.heatmap_img}" class="img-fluid">`)
-                        } else {
-                            $('#returnHeatmap').html(''); // Clear if no heatmap
+                        if (response.heatmap_img) {
+                            $('#returnHeatmap').html(`<img src="data:image/png;base64,${response.heatmap_img}" class="img-fluid">`);
                         }
                     }
                 },
-                error: function(error) {
+                error: function (error) {
                     console.error("Error:", error);
-                    $('#portfolioResults').html('<p style="color: red;">An error occurred.</p>');
-                    $('#portfolioGraphs').hide();
                 }
             });
         });
 
-        function updateTotalWeight() {
-            let totalWeight = 0;
-            let sliders = $('.slider');
-
-            sliders.each(function() {
-                totalWeight += $(this).slider('value');
-            });
-
-            // Round to the nearest whole number
-            totalWeight = Math.round(totalWeight);
-
-            $('#totalWeight').text('Total Weight: ' + totalWeight + '%');
-
-            sliders.each(function(index) {
-                let currentSlider = $(this);
-                let otherSliders = sliders.not(currentSlider);
-                let otherSlidersTotal = 0;
-
-                otherSliders.each(function() {
-                    otherSlidersTotal += $(this).slider('value');
-                });
-
-                let maxForCurrent = 100 - otherSlidersTotal;
-
-                if (maxForCurrent < 0) {
-                    maxForCurrent = 0;
-                }
-
-                currentSlider.slider('option', 'max', maxForCurrent);
-            });
-        }
+        portfolio_weekly_returns = portfolio_weekly_returns[portfolio_weekly_returns.index >= five_years_ago];
     });
 </script>
 
@@ -260,3 +260,29 @@
     }
 </style>
 {% endblock %}
+
+@portfolio_bp.route('/update_pie_chart', methods=['POST'])
+def update_pie_chart():
+    data = request.json
+    stocks = data.get('stocks', [])
+    allocations = data.get('allocations', [])
+
+    if not stocks or not allocations:
+        return jsonify({'error': 'Stocks and allocations are required.'})
+
+    if len(stocks) != len(allocations):
+        return jsonify({'error': 'Number of stocks and allocations must match.'})
+
+    # Generate Portfolio Allocation Pie Chart
+    plt.figure(figsize=(8, 8))
+    colors = list(mcolors.TABLEAU_COLORS.values())
+    plt.pie(allocations, labels=stocks, autopct='%1.1f%%', startangle=140, colors=colors)
+    plt.title('Portfolio Allocation')
+
+    pie_chart_img = io.BytesIO()
+    plt.savefig(pie_chart_img, format='png', bbox_inches='tight')
+    pie_chart_img.seek(0)
+    pie_chart_base64 = base64.b64encode(pie_chart_img.getvalue()).decode()
+    plt.close()
+
+    return jsonify({'pie_chart': pie_chart_base64})

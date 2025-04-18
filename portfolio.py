@@ -1,9 +1,15 @@
+# filepath: c:\Users\leodu\Desktop\Financial APP\portfolio.py
+import matplotlib
+matplotlib.use('Agg')  # Use non-GUI backend
+
 from flask import Blueprint, request, jsonify
 import yfinance as yf
 import pandas as pd
 import matplotlib.pyplot as plt
 import io
 import base64
+import matplotlib.colors as mcolors
+from pytz import UTC
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import seaborn as sns
@@ -30,18 +36,41 @@ def calculate_portfolio():
 
     today = datetime.now()
     five_years_ago = today - relativedelta(years=5)
+    five_years_ago = (datetime.now() - relativedelta(years=5)).replace(tzinfo=UTC)
+    portfolio_weekly_returns = portfolio_weekly_returns[portfolio_weekly_returns.index >= five_years_ago]
 
+    company_names = {}
+    stock_data = {}
     portfolio_data = pd.DataFrame()
-    for i, stock in enumerate(stocks):
+
+    for stock in stocks:
         try:
-            stock_data = yf.download(stock, start=five_years_ago, end=today)['Adj Close']
-            portfolio_data[stock] = stock_data * allocations[i]
+            ticker = stock.split('(')[-1].split(')')[0]
+            company_name = stock.split('(')[0].strip()
+            company_names[ticker] = company_name
+            print(f"Attempting to download data for: {ticker}")
+
+            data = yf.download(ticker, start=five_years_ago, progress=False, auto_adjust=False)
+            print(f"Data for {ticker}:")
+            print(data.head())
+
+            if not data.empty:
+                stock_data[ticker] = data
+
+                if data.index.tz is None:
+                    stock_data[ticker].index = pd.to_datetime(stock_data[ticker].index, utc=True)
+
+                allocation_index = stocks.index(stock)
+                portfolio_data[ticker] = data['Adj Close'] * allocations[allocation_index]
+            else:
+                print(f"No data found for {ticker}")
         except Exception as e:
-            return jsonify({'error': f'Error fetching data for {stock}: {e}'})
+            print(f"Error fetching data for {stock} ({ticker}): {e}")
 
     if portfolio_data.empty:
         return jsonify({'error': 'No data fetched.'})
 
+    # Portfolio Cumulative Returns
     portfolio_returns = portfolio_data.sum(axis=1).pct_change().dropna()
     cumulative_returns = (1 + portfolio_returns).cumprod() * 100
 
@@ -58,8 +87,11 @@ def calculate_portfolio():
     return_plot_base64 = base64.b64encode(return_plot_img.getvalue()).decode()
     plt.close()
 
+    # Portfolio Allocation Pie Chart
     plt.figure(figsize=(8, 8))
-    plt.pie(allocations, labels=stocks, autopct='%1.1f%%')
+    labels = [company_names[stock.split('(')[-1].split(')')[0]] for stock in stocks]
+    colors = list(mcolors.TABLEAU_COLORS.values())
+    plt.pie(allocations, labels=labels, autopct='%1.1f%%', startangle=140, colors=colors)
     plt.title('Portfolio Allocation')
 
     pie_chart_img = io.BytesIO()
@@ -68,44 +100,27 @@ def calculate_portfolio():
     pie_chart_base64 = base64.b64encode(pie_chart_img.getvalue()).decode()
     plt.close()
 
-    # Industry Pie Chart
-    industries = {}
-    for stock in stocks:
-        try:
-            ticker = yf.Ticker(stock)
-            info = ticker.info
-            if 'industry' in info:
-                industry = info['industry']
-                industries[industry] = industries.get(industry, 0) + 1
-        except Exception as e:
-            print(f"Error getting industry for {stock}: {e}")
+    # Weekly Returns Heatmap for the Overall Portfolio
+    # Calculate the overall portfolio weekly returns
+    portfolio_weekly_returns = portfolio_data.resample('W').sum().pct_change().dropna()
 
-    if industries:
-        plt.figure(figsize=(8, 8))
-        plt.pie(industries.values(), labels=industries.keys(), autopct='%1.1f%%')
-        plt.title('Portfolio Industry Allocation')
+    # Ensure we only include the past 5 years of weekly returns
+    five_years_ago = datetime.now() - relativedelta(years=5)
+    portfolio_weekly_returns = portfolio_weekly_returns[portfolio_weekly_returns.index >= five_years_ago]
 
-        industry_pie_chart_img = io.BytesIO()
-        plt.savefig(industry_pie_chart_img, format='png', bbox_inches='tight')
-        industry_pie_chart_img.seek(0)
-        industry_pie_chart_base64 = base64.b6encode(industry_pie_chart_img.getvalue()).decode()
-        plt.close()
-    else:
-        industry_pie_chart_base64 = None
-
-    # Weekly returns heatmap
-    weekly_returns = portfolio_returns.resample('W').mean()
-
-    heatmap_data = weekly_returns.to_frame()
-    heatmap_data['week'] = heatmap_data.index.isocalendar().week
-    heatmap_data['year'] = heatmap_data.index.year
-    heatmap_data = heatmap_data.pivot_table(index='year', columns='week', values=0)
-
-    plt.figure(figsize=(16, 8))
-    sns.heatmap(heatmap_data, cmap='RdBu', center=0, annot=False, fmt=".2f", linewidths=.5)
+    # Generate heatmap for overall portfolio weekly returns
+    plt.figure(figsize=(12, 6))
+    sns.heatmap(
+        portfolio_weekly_returns.to_frame().T,  # Convert to DataFrame and transpose for heatmap
+        annot=False,
+        cmap='coolwarm',
+        cbar=True,
+        xticklabels=portfolio_weekly_returns.index.strftime('%Y-%m-%d'),
+        yticklabels=["Portfolio"]
+    )
     plt.title('Portfolio Weekly Returns Heatmap (Last 5 Years)')
-    plt.xlabel('Week')
-    plt.ylabel('Year')
+    plt.xlabel('Date')
+    plt.ylabel('')
 
     heatmap_img = io.BytesIO()
     plt.savefig(heatmap_img, format='png', bbox_inches='tight')
@@ -116,6 +131,5 @@ def calculate_portfolio():
     return jsonify({
         'return_plot': return_plot_base64,
         'pie_chart': pie_chart_base64,
-        'industry_pie_chart': industry_pie_chart_base64,
         'heatmap_img': heatmap_base64
     })

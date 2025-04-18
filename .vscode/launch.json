@@ -1,0 +1,18 @@
+// filepath: c:\Users\leodu\Desktop\Financial APP\.vscode\launch.json
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "python",
+            "request": "launch",
+            "name": "Launch Flask App",
+            "program": "${workspaceFolder}/app.py",
+            "args": [],
+            "env": {
+                "FLASK_APP": "app.py",
+                "FLASK_ENV": "development"
+            },
+            "console": "integratedTerminal"
+        }
+    ]
+}
